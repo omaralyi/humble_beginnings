@@ -12,24 +12,31 @@ type Genre struct {
 	name      string
 	url       string
 	genreTags []string
-	selected  bool
 }
 
 func trimLastChars(s string) string {
 	return s[:len(s)-3]
 }
 
-func selectGenresByTag(inputGenres []Genre, searchTag string) []Genre {
+func getGenresByTags(inputGenres []Genre, selectedTags []string) []Genre {
 	resultsGenre := []Genre{}
 	for _, genreToEvaluate := range inputGenres {
-		for _, tagToEvaluate := range genreToEvaluate.genreTags {
-			if tagToEvaluate == searchTag {
-				genreToEvaluate.selected = true
-				break
+		allTagsFoundInGenre := true
+		for _, selectedTag := range selectedTags {
+			tagFoundInGenre := false
+			for _, genreTag := range genreToEvaluate.genreTags {
+				if selectedTag == genreTag {
+					tagFoundInGenre = true
+					break
+				}
 			}
-			genreToEvaluate.selected = false
+			if !tagFoundInGenre {
+				allTagsFoundInGenre = false
+			}
 		}
-		resultsGenre = append(resultsGenre, genreToEvaluate)
+		if allTagsFoundInGenre {
+			resultsGenre = append(resultsGenre, genreToEvaluate)
+		}
 	}
 	return resultsGenre
 }
@@ -60,7 +67,7 @@ func checkError(err error) {
 	}
 }
 
-func getGenres() []Genre {
+func getRootGenres() []Genre {
 	genres := []Genre{}
 	url := "https://everynoise.com"
 	response, error := http.Get(url)
@@ -83,25 +90,54 @@ func getGenres() []Genre {
 			for _, tag := range tagsToAdd {
 				genreTags = append(genreTags, strings.TrimSpace(tag))
 			}
-			genres = append(genres, Genre{name, url, genreTags, true})
+			genres = append(genres, Genre{name, url, genreTags})
 		}
 	})
 	return genres
 }
 
+func initializeStuff() ([]Genre, []string, []string) {
+	rootGenres := getRootGenres()
+	availableTags := getUniqueTagsByGenres(rootGenres)
+	selectedTags := []string{}
+
+	return rootGenres, availableTags, selectedTags
+}
+
+func addSelectedTag(genres []Genre, selectedTags []string, tagToAdd string) ([]Genre, []string, []string) {
+	selectedTags = append(selectedTags, tagToAdd)
+	genres = getGenresByTags(genres, selectedTags)
+	availableTags := getUniqueTagsByGenres(genres)
+	return genres, availableTags, selectedTags
+}
+
+func printTags(tags []string) {
+	for _, tag := range tags {
+		fmt.Print(tag, " ")
+	}
+}
+
+func printGenres(genres []Genre) {
+	for _, genre := range genres {
+		fmt.Println(genre.name, ":", genre.url)
+	}
+}
+
 func main() {
-	genres := getGenres()
-	//rootTags := getUniqueTagsByGenres(rootGenres)
-	fmt.Println("Discover music genres as you please! What do you want to look for? Try something random")
-	var userSearchTerm string
-	// Taking input from user
-	fmt.Scanln(&userSearchTerm)
-	genres = selectGenresByTag(genres, userSearchTerm)
-	//availableTags := getUniqueTagsByGenres(searchedGenres)
-	fmt.Println("Available Genres to look through:")
-	for i, genre := range genres {
-		if genre.selected {
-			fmt.Println("Genre #", i, ":", genre.name, "URL:", genre.url, genre.selected)
-		}
+	genres, availableTags, selectedTags := initializeStuff()
+	fmt.Println("Welcome to music genre selector!")
+	printTags(availableTags)
+
+	for {
+		var userInputTag string
+		fmt.Scanln(&userInputTag)
+
+		genres, availableTags, selectedTags = addSelectedTag(genres, selectedTags, userInputTag)
+		printGenres(genres)
+		fmt.Println("Your current selection:")
+		printTags(selectedTags)
+		fmt.Println("\nYour available options to narrow it down:")
+		printTags(availableTags)
+		//implement switch to test different user input
 	}
 }
